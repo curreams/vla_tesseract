@@ -78,13 +78,24 @@
                     @endauth
                 </div>
             @endif
+            <form method="POST" action="/convertImage" class="form-horizontal" enctype="multipart/form-data" >
+                {{ csrf_field() }}
+                <div class="content">
+                    <div class="title m-b-md">
+                        VLA OCR
+                    </div>
 
-            <div class="content">
-                <div class="title m-b-md">
-                    VLA
                 </div>
-
-            </div>
+                <div class="form-control">
+                    <input class="form-control" type="file" name="upload_file" id="upload_file" accept="application/pdf">
+                </div>
+                <br>
+                <div class="form-actions">
+                        <div class="col-md-offset-3 col-md-9">
+                            <button type="submit" class="btn btn-circle green">Convert File</button>
+                        </div>
+                    </div>
+            </form>
         </div>
     </body>
 </html>
