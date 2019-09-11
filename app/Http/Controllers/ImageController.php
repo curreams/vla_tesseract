@@ -6,14 +6,21 @@ use Illuminate\Http\Request;
 use Imagick;
 use thiagoalessio\TesseractOCR\TesseractOCR;
 use mikehaertl\pdftk\Pdf;
+use App\Client;
+
+use function BenTools\CartesianProduct\cartesian_product;
+
+
 
 
 class ImageController extends Controller
 {
+
+    
     /**
      * Main function to convert the image to text
      */
-    public function convertPdf(Request $request)
+    public function parseDocument(Request $request)
     {
         try {
             $result = [];
@@ -25,30 +32,65 @@ class ImageController extends Controller
             }
             if (isset($image_path) && !empty($image_path)) {
                 foreach ($image_path as $image) {
+                    $temp_name = [];
                     $ocr = new TesseractOCR();
                     $ocr->image($image);
                     $text = $ocr->run();
-                    $possible_names[] = self::searchClientName($text);
-                    $possible_DOBs[] = self::searchClientDOB($text);
-                    $result[] = nl2br($text);
-                    
+                    $temp_name = self::findClientName($text);
+                    foreach ($temp_name as $name) {
+                        $possible_names[] = $name;
+                    }
+                    $possible_DOBs[] = self::findClientDOB($text);
+                    $result[] = nl2br($text);                    
                 }                
             }
             $possible_DOBs = array_flatten($possible_DOBs);
-            dd($possible_DOBs);
-            $possible_names = array_flatten($possible_names);
+
+            $combinations = self::makeCombinations($possible_names ,$possible_DOBs);
+            $possibleClients = self::searchClient($combinations);
+
              if(!empty($result)){
                  self::cleanServerFiles($args, $result);                 
              }
-             
-            return view('result', compact('result'));
+             //dd($possibleClients);
+            return view('result', compact('result','possibleClients'));
         } catch (\Exception $ex) {
             return $ex->getMessage();
         }
     }
 
+    private function makeCombinations($possible_names ,$possible_DOBs)
+    {
+        
+        $data = [
+            'Name' => $possible_names,
+            'DOBStart'=>!empty($possible_DOBs) ? $possible_DOBs : [""],
+            'DOBEnd'=>!empty($possible_DOBs) ? $possible_DOBs : [""]
+        ];
+        return cartesian_product($data)->asArray();
+    }
 
-    private function searchClientDOB($text)
+    private function searchClient($combinations)
+    {
+        $possible_clients = [];
+        $client_obj = new Client();
+        foreach ($combinations as $combination) {
+            $response = $client_obj->getClient($combination);
+            if(isset($response->Data)) {
+                foreach ($response->Data as $client) {
+                    $possible_clients[$client->ClientId] = $client;
+                }
+            }
+        }
+        return $possible_clients;
+
+    }
+
+
+    /**
+     * Find a possible DOB
+     */
+    private function findClientDOB($text)
     {
         $result = [];
         $dates = [];
@@ -73,45 +115,34 @@ class ImageController extends Controller
     /**
      * 
      */
-    private function searchClientName($text)
+    private function findClientName($text)
     {
         $possible_names = [];
-        $commonwords = 'a,an,and,i,it,is,do,does,for,from,go,how,the,etc,name,family,given,names,sex,date,of,the,birth,prior,convictions,m,.,|,formant,iin,cee,nn,_,v,informant,accused,contravenes,permit,evidence,statement';
+        $commonwords = 'a,an,and,i,it,is,do,does,for,from,go,how,the,etc,name,family,given,names,sex,date,of,the,birth,prior,convictions,m,.,|,formant,iin,cee,nn,_,v,informant,accused,contravenes,permit,evidence,statement,-,dob,document';
         $commonwords = explode(",", $commonwords);        
-        $data   = preg_split('/\s+/', strtolower($text));
-        $keys_accused = array_keys($data,'accused');
+        $data   = preg_split('/\s+/', preg_replace("/[^a-zA-Z0-9\s+]/","",strtolower($text)));
+        $keys_accused = array_keys($data,'accused');        
         foreach ($keys_accused as  $key_value) {
             $sub_array = array_slice($data, $key_value, 20);
             $name_keys = array_keys($sub_array,'name');
-            foreach ($name_keys as $name_key) {
-                $word1 = preg_replace("/[^a-zA-Z]/", "", $sub_array[$name_key + 1]);
-                $word2 = preg_replace("/[^a-zA-Z]/", "", $sub_array[$name_key + 2]);
-                if(!in_array($word1, $commonwords)){
-                    $possible_names[] = $word1;
-                }
-                if(!in_array($word2, $commonwords)){
-                    $possible_names[] = $word2;
-                }
-            }
-
-           
-        }
-        return $possible_names;
-        /*
-        if($key_accused > 0) {
-            $sub_array = array_slice($data, $key_accused, 19);   
-            if(array_search('name', $sub_array)){
-                foreach ($sub_array as $key => $world) {
-                    if(!in_array($world, $commonwords)){
-                        $query[] = $world;
+            foreach ($name_keys as $key => $name_key) {
+                $temp_name= [];
+                for ($i=1; $i <= 3 ; $i++) { 
+                    $word = preg_replace("/[^a-zA-Z]/", "", $sub_array[$name_key + $i]);                    
+                    if(strtolower($word) == 'informant' ){
+                        break;
+                    }
+                    if(isset($word) && trim($word) != '' && !in_array($word, $commonwords)){
+                        $temp_name[] = $word;
                     }
                 }
-            }
-
+                if(!empty($temp_name)){
+                    $possible_names[] = implode(' ',$temp_name);
+                }
+            }           
         }
-        preg_match_all($date_pattern,$text,$dates);
-        dd($dates,$query);
-        */
+        return $possible_names;
+        
     }
 
     /**
@@ -187,7 +218,7 @@ class ImageController extends Controller
 
     }
 
-
+///////////////// Test Functions //////////////////////////////////
     public function testOCR($image_path)
     {
         $ocr = new TesseractOCR();

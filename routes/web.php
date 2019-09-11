@@ -15,4 +15,4 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-Route::post('/convertImage', 'ImageController@convertPdf');
+Route::post('/parseDocument', 'ImageController@parseDocument');

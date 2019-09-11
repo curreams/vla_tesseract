@@ -7,82 +7,35 @@
         <title>VLA OCR</title>
 
         <!-- Fonts -->
-        <link href="https://fonts.googleapis.com/css?family=Nunito:200,600" rel="stylesheet">
+        <link href="css/custom.css" rel="stylesheet" type="text/css" media="all">
 
-        <!-- Styles -->
-        <style>
-            html, body {
-                background-color: #fff;
-                color: #636b6f;
-                font-family: 'Nunito', sans-serif;
-                font-weight: 200;
-                height: 100vh;
-                margin: 0;
-            }
-
-            .full-height {
-                height: 100vh;
-            }
-
-            .flex-center {
-                align-items: center;
-                display: flex;
-                justify-content: center;
-            }
-
-            .position-ref {
-                position: relative;
-            }
-
-            .top-right {
-                position: absolute;
-                right: 10px;
-                top: 18px;
-            }
-
-            .content {
-                text-align: center;
-            }
-
-            .title {
-                font-size: 84px;
-            }
-
-            .links > a {
-                color: #636b6f;
-                padding: 0 25px;
-                font-size: 13px;
-                font-weight: 600;
-                letter-spacing: .1rem;
-                text-decoration: none;
-                text-transform: uppercase;
-            }
-
-            .m-b-md {
-                margin-bottom: 30px;
-            }
-        </style>
     </head>
-    <body>
-        <div class="flex-center position-ref full-height">
-            <form method="POST" action="/convertImage" class="form-horizontal" enctype="multipart/form-data" >
-                {{ csrf_field() }}
-                <div class="content">
-                    <div class="title m-b-md">
-                        VLA OCR
-                    </div>
+    <body id="top">
 
+    <div class="bgded overlay" id="main_billboard">
+        <div class="wrapper row1">
+            <header id="header" class="hoc clear"> 
+                <div id="logo" class="fl_left">
+                    <h1><a href="{{ url('/') }}">VLA OCR</a></h1>
                 </div>
-                <div class="form-control">
-                    <input class="form-control" type="file" name="upload_file" id="upload_file" accept="application/pdf">
-                </div>
-                <br>
-                <div class="form-actions">
-                        <div class="col-md-offset-3 col-md-9">
-                            <button type="submit" class="btn btn-circle green">Convert File</button>
-                        </div>
-                    </div>
-            </form>
+            </header>
         </div>
+        <section id="pageintro" class="hoc clear">
+            <div>
+                <form method="POST" action="/parseDocument" class="form-horizontal" enctype="multipart/form-data" >
+                    {{ csrf_field() }} 
+                    <h2 class="heading">Upload File</h2>                    
+                    
+                    <input type="file" name="upload_file" id="upload_file" accept="application/pdf" required>
+                    
+                    <footer><button type="submit" class="btn btn-circle green">Parse File</button></footer>
+                </form>
+            </div>
+        </section>
+    </div>
+        <!-- JAVASCRIPTS -->
+        <script src="js/jquery.min.js"></script>
+        <script src="js/jquery.backtotop.js"></script>
+        <script src="js/jquery.mobilemenu.js"></script>
     </body>
 </html>

@@ -1,107 +1,67 @@
 <!doctype html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
 
-        <title>VLA</title>
+        <title>VLA OCR</title>
 
         <!-- Fonts -->
-        <link href="https://fonts.googleapis.com/css?family=Nunito:200,600" rel="stylesheet">
+        <link href="css/custom.css" rel="stylesheet" type="text/css" media="all">
 
-        <!-- Styles -->
-        <style>
-            html, body {
-                background-color: #fff;
-                color: #636b6f;
-                font-family: 'Nunito', sans-serif;
-                font-weight: 200;
-                height: 100vh;
-                margin: 0;
-            }
-
-            .full-height {
-                height: 100vh;
-            }
-
-            .flex-center {
-                align-items: center;
-                display: flex;
-                justify-content: center;
-            }
-
-            .position-ref {
-                position: relative;
-            }
-
-            .top-right {
-                position: absolute;
-                right: 10px;
-                top: 18px;
-            }
-
-            .content {
-                text-align: center;
-            }
-
-            .title {
-                font-size: 84px;
-            }
-
-            .links > a {
-                color: #636b6f;
-                padding: 0 25px;
-                font-size: 13px;
-                font-weight: 600;
-                letter-spacing: .1rem;
-                text-decoration: none;
-                text-transform: uppercase;
-            }
-
-            .m-b-md {
-                margin-bottom: 30px;
-            }
-            .custom-text-box {
-                width: 395px;
-                padding: 90px 50px 100px 0;
-                background: #fff;
-            }
-
-            .custom-text-box span {
-                font-size: 11px;
-                font-weight: 700;
-                text-transform: uppercase;
-                color: #898d90;
-                letter-spacing: 2px;
-            }
-
-            .custom-text-box h2 {
-                margin-bottom: 30px;
-                font-size: 48px;
-            }
-
-            .custom-text-box p {
-                margin-bottom: 40px;
-            }
-        </style>
     </head>
-    <body>
-        <div class="container">            
-            <div class="row">
-                @foreach($result as $key => $page)
-                <div class="col-md-12 custom-text-box" >
-                    <h2>Page {{ $key + 1  }}</h2>
-                    <p>{!! $page !!}</p>
-                </div>
-                @endforeach
-            </div >
-        </div>
+    <body id="top">
 
-        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <div class="bgded overlay" id="main_billboard">
+        <div class="wrapper row1">
+            <header id="header" class="hoc clear"> 
+                <div id="logo" class="fl_left">
+                    <h1><a href="{{ url('/') }}">VLA OCR</a></h1>
+                </div>
+            </header>
+        </div>
+        <div class="wrapper row3">
+            <main class="hoc container clear"> 
+                <div class="sectiontitle">
+                <h6 class="heading">Possible Clients</h6>
+                <p>Select one of the clients from the list.</p>
+                </div>
+                <div class="group excerpts container">
+                    <div class="row">
+                        @foreach($possibleClients as $key => $client)
+                        <div class="col-md-3" >
+                            <article class="one_third half" >
+                                <div class="hgroup">
+                                <h6 class="heading">{!! $client->ClientName !!}</h6>
+                                <em>{!! $client->DOB !!}</em></div>
+                                <div class="txtwrap">
+                                <p>{!! isset($client->HomeAddress) && !empty($client->HomeAddress) ? $client->HomeAddress : ' No Home Address Provided' !!}</p>
+                                </div>
+                            </article>
+                        </div>
+                        @endforeach
+                </div>
+                </div>
+                <div class="clear"></div>
+            </main>
+        </div>
+        <section id="pageintro" class="hoc clear">
+            <div class="container">            
+                <div class="row">
+                    @foreach($result as $key => $page)
+                    <div class="col-md-12 custom-text-box" >
+                        <h2>Page {{ $key + 1  }}</h2>
+                        <p>{!! $page !!}</p>
+                    </div>
+                    @endforeach
+                </div >
+            </div>
+        </section>
+    </div>
+        <!-- JAVASCRIPTS -->
+        <script src="js/jquery.min.js"></script>
+        <script src="js/jquery.backtotop.js"></script>
+        <script src="js/jquery.mobilemenu.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
     </body>
 </html>
