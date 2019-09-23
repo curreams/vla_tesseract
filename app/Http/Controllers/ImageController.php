@@ -18,7 +18,7 @@ class ImageController extends Controller
 
     
     /**
-     * Main function to convert the image to text
+     * Main function to read the pdf 
      */
     public function parseDocument(Request $request)
     {
@@ -26,7 +26,7 @@ class ImageController extends Controller
             $result = [];
             $possible_names = [];
             $possible_DOBs = [];
-            $args= self::getFileArgs($request);            
+            $args= self::getFileArgs($request);
             if(self::splitPdf($args)){
                 $image_path = self::convertPdfToImage($args);
             }
@@ -52,25 +52,36 @@ class ImageController extends Controller
              if(!empty($result)){
                  self::cleanServerFiles($args, $result);                 
              }
-             //dd($possibleClients);
-            return view('result', compact('result','possibleClients'));
+             $validate_request = json_decode($request->getContent());
+             if(isset($validate_request->file_name)){
+                return response()->json(["data"=> $result,  "possible_clients"=> $possibleClients]);
+             } 
+             return view('result', compact('result','possibleClients'));
+             
         } catch (\Exception $ex) {
             return $ex->getMessage();
         }
     }
 
-    private function makeCombinations($possible_names ,$possible_DOBs)
+
+    /**
+     * Do a cartesian product to know the possible combination when search a client. 
+     */
+    public function makeCombinations($possible_names ,$possible_DOBs)
     {
         
         $data = [
-            'Name' => $possible_names,
+            'Name' => !empty($possible_names) ? $possible_names : [""],
             'DOBStart'=>!empty($possible_DOBs) ? $possible_DOBs : [""],
             'DOBEnd'=>!empty($possible_DOBs) ? $possible_DOBs : [""]
         ];
         return cartesian_product($data)->asArray();
     }
 
-    private function searchClient($combinations)
+    /**
+     * Consult the Atlas Web service for search the possible clients. 
+     */
+    public function searchClient($combinations)
     {
         $possible_clients = [];
         $client_obj = new Client();
@@ -90,7 +101,7 @@ class ImageController extends Controller
     /**
      * Find a possible DOB
      */
-    private function findClientDOB($text)
+    public function findClientDOB($text)
     {
         $result = [];
         $dates = [];
@@ -115,26 +126,28 @@ class ImageController extends Controller
     /**
      * 
      */
-    private function findClientName($text)
+    public function findClientName($text)
     {
         $possible_names = [];
-        $commonwords = 'a,an,and,i,it,is,do,does,for,from,go,how,the,etc,name,family,given,names,sex,date,of,the,birth,prior,convictions,m,.,|,formant,iin,cee,nn,_,v,informant,accused,contravenes,permit,evidence,statement,-,dob,document';
+        $commonwords = 'a,an,and,i,it,is,do,does,for,from,go,how,the,etc,name,family,given,names,sex,date,of,the,birth,prior,convictions,m,.,|,formant,iin,cee,nn,_,v,informant,accused,contravenes,permit,evidence,statement,-,dob,document,male,age,please';
         $commonwords = explode(",", $commonwords);        
         $data   = preg_split('/\s+/', preg_replace("/[^a-zA-Z0-9\s+]/","",strtolower($text)));
-        $keys_accused = array_keys($data,'accused');        
+        $keys_accused = array_keys($data,'accused');
         foreach ($keys_accused as  $key_value) {
             $sub_array = array_slice($data, $key_value, 20);
             $name_keys = array_keys($sub_array,'name');
             foreach ($name_keys as $key => $name_key) {
                 $temp_name= [];
-                for ($i=1; $i <= 3 ; $i++) { 
-                    $word = preg_replace("/[^a-zA-Z]/", "", $sub_array[$name_key + $i]);                    
-                    if(strtolower($word) == 'informant' ){
-                        break;
-                    }
-                    if(isset($word) && trim($word) != '' && !in_array($word, $commonwords)){
-                        $temp_name[] = $word;
-                    }
+                for ($i=1; $i <= 3 ; $i++) {
+                    if(isset($sub_array[$name_key + $i])){
+                        $word = preg_replace("/[^a-zA-Z]/", "", $sub_array[$name_key + $i]);                    
+                        if(strtolower($word) == 'informant' ){
+                            break;
+                        }
+                        if(isset($word) && trim($word) != '' && !in_array($word, $commonwords)){
+                            $temp_name[] = $word;
+                        }
+                    } 
                 }
                 if(!empty($temp_name)){
                     $possible_names[] = implode(' ',$temp_name);
@@ -148,7 +161,7 @@ class ImageController extends Controller
     /**
      * After execution Clean the server files.
      */
-     private function cleanServerFiles($args, $result) 
+     public function cleanServerFiles($args, $result) 
      {
          foreach ($result as $key => $text) {
              $index = $key + 1;
@@ -162,15 +175,22 @@ class ImageController extends Controller
 
 
     /**
-     * 
+     *  File Args When function is called from UI
      */
-    private function getFileArgs($request)
+    public function getFileArgs($request)
     {
         $args=[];
-        $fileName =  $request['upload_file']->getClientOriginalName();
-        $name = basename($request['upload_file']->getClientOriginalName(), '.'.$request['upload_file']->getClientOriginalExtension());
         $public_path = app()->make('path.public').(DIRECTORY_SEPARATOR . "pdf") . DIRECTORY_SEPARATOR;
-        $request['upload_file']->move($public_path, $fileName);
+        $rest_request = json_decode($request->getContent());
+        if(isset($rest_request->file_name)){
+            $fileName =  $rest_request->file_name;
+            $name = basename($rest_request->file_name, '.pdf');
+
+        } else {
+            $fileName =  $request['upload_file']->getClientOriginalName();
+            $name = basename($request['upload_file']->getClientOriginalName(), '.'.$request['upload_file']->getClientOriginalExtension());
+            $request['upload_file']->move($public_path, $fileName);
+        }
         $args['file_name'] = $fileName;
         $args['name'] = $name;
         $args['public_path'] = $public_path;
@@ -178,10 +198,13 @@ class ImageController extends Controller
         
         return $args;
     }
+
+
+
     /**
      * 
      */
-    private function splitPdf($args) 
+    public function splitPdf($args) 
     {
         $pdf = new Pdf($args['file_path']);
         $result = $pdf->burst($args['public_path'].$args['name'].'%d.pdf');
@@ -190,7 +213,7 @@ class ImageController extends Controller
     /**
      * 
      */
-    private function convertPdfToImage($args)
+    public function convertPdfToImage($args)
     {        
         $result=[];
         $imagick = new Imagick();
@@ -225,6 +248,11 @@ class ImageController extends Controller
         $ocr->image($image_path);
         $text = $ocr->run();
         return $text;
+    }
+
+    public static function apiResponse()
+    {
+        return "Hello World";
     }
 
 
@@ -262,6 +290,7 @@ class ImageController extends Controller
         //if($imagick->writeImages($path, false)){
             return $result;
     }
+
 
 
 }
