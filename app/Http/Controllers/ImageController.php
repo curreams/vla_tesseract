@@ -80,6 +80,7 @@ class ImageController extends Controller
 
     /**
      * Consult the Atlas Web service for search the possible clients. 
+     * Need to be pointed to the right Atlas Web Service
      */
     public function searchClient($combinations)
     {
@@ -99,7 +100,7 @@ class ImageController extends Controller
 
 
     /**
-     * Find a possible DOB
+     * Find a possible DOB using a regex
      */
     public function findClientDOB($text)
     {
@@ -124,6 +125,7 @@ class ImageController extends Controller
     }
 
     /**
+     * Find the possible client names in the brief
      * 
      */
     public function findClientName($text)
@@ -202,7 +204,7 @@ class ImageController extends Controller
 
 
     /**
-     * 
+     * Split the pdf in one per page to make the image process easy
      */
     public function splitPdf($args) 
     {
@@ -211,7 +213,7 @@ class ImageController extends Controller
         return $result;
     }
     /**
-     * 
+     * From each of the pdf create a readable image to Tesseract.
      */
     public function convertPdfToImage($args)
     {        

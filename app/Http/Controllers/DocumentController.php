@@ -6,6 +6,9 @@ use Illuminate\Http\Request;
 
 class DocumentController extends Controller
 {
+    /**
+     * Create the word document for the transcript
+     */
     public function createDocument($pages, $name){
         $public_path = app()->make('path.public').(DIRECTORY_SEPARATOR . "pdf") . DIRECTORY_SEPARATOR;
         $phpWord = new \PhpOffice\PhpWord\PhpWord();
