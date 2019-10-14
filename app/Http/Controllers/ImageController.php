@@ -85,6 +85,7 @@ class ImageController extends Controller
     public function searchClient($combinations)
     {
         $possible_clients = [];
+        $result = [];
         $client_obj = new Client();
         foreach ($combinations as $combination) {
             $response = $client_obj->getClient($combination);
@@ -93,8 +94,8 @@ class ImageController extends Controller
                     $possible_clients[$client->ClientId] = $client;
                 }
             }
-        }
-        return $possible_clients;
+        }        
+        return array_values($possible_clients);
 
     }
 
@@ -131,8 +132,7 @@ class ImageController extends Controller
     public function findClientName($text)
     {
         $possible_names = [];
-        $commonwords = 'a,an,and,i,it,is,do,does,for,from,go,how,the,etc,name,family,given,names,sex,date,of,the,birth,prior,convictions,m,.,|,formant,iin,cee,nn,_,v,informant,accused,contravenes,permit,evidence,statement,-,dob,document,male,age,please';
-        $commonwords = explode(",", $commonwords);        
+        $commonwords = getCommonWords();        
         $data   = preg_split('/\s+/', preg_replace("/[^a-zA-Z0-9\s+]/","",strtolower($text)));
         $keys_accused = array_keys($data,'accused');
         foreach ($keys_accused as  $key_value) {
@@ -158,6 +158,51 @@ class ImageController extends Controller
         }
         return $possible_names;
         
+    }
+
+    public function findCharges($text)
+    {
+        $possible_charges = [];
+        $commonwords = getCommonWords();
+        $data = preg_replace("/[^a-zA-Z0-9:.\"\/\s+]/","",strtolower($text));
+        $pos_charge = strpos($data, 'details of the charge against');
+        $pos_offence = strpos($data, 'offence literal');
+        $pos_cont_charges = strpos($data, 'continuation of charges');
+        $result = [];
+        //return substr($data, $pos_cont_charges);
+        if($pos_charge) {
+            $temp_string = substr($data, $pos_charge, strpos($data,".\n",$pos_charge) - $pos_charge);
+            $result["Charge"][] = substr($temp_string, strpos($temp_string, "1"));
+
+        }
+        if($pos_offence) {
+            $substr = substr($data, $pos_offence);
+            preg_match_all("/offence literal/",$substr,$matches_offences, PREG_OFFSET_CAPTURE );
+            foreach (array_flatten($matches_offences) as $match) {
+                if(is_int($match)) {
+                    $temp_string = substr($substr, $match, strpos($substr,".\n",$match) - $match);
+                    $result["Offense"][] = trim(substr($temp_string, strpos($temp_string, ":") + 1, strpos($temp_string, "\n") - strpos($temp_string, ":") ));
+                }
+            }
+           /* $temp_string = substr($data, $pos_offence, strpos($data,"\n",$pos_offence) - $pos_offence);            
+            $result["Offense"][] = trim(substr($temp_string, strpos($temp_string, ":") + 1 ));*/
+
+        }
+        if($pos_cont_charges){
+            $substr = substr($data, $pos_cont_charges);
+            preg_match_all("/the accused/",$substr,$matches_charges, PREG_OFFSET_CAPTURE );
+            foreach (array_flatten($matches_charges) as $key => $match) {
+                if(is_int($match)) {
+                    $temp_string = substr($substr, $match, strpos($substr,".\n",$match) - $match);
+                    $result["Charge"][] = substr($temp_string, strpos($temp_string, "\n\d"));
+                }
+                /*$temp_pos = strpos($data, $match);
+                $temp_string = substr($data, $temp_pos, strpos($data,".\n",$temp_pos) - $temp_pos);
+                $result["Charge"][] = substr($temp_string, strpos($temp_string, "\n\d"));*/
+            }
+        }
+
+        return $result;
     }
 
     /**

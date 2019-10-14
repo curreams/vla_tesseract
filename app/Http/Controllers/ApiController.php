@@ -60,22 +60,40 @@ class ApiController extends Controller
         try {
             $possible_names = [];
             $possible_DOBs = [];
+            $charges_offences = [];
+            $possible_offences = [];
+            $possible_charges = [];
 
             $validate_request = json_decode($request->getContent());
-            if(isset($validate_request->image_path) && isset($validate_request->page_number)){
+            if(isset($validate_request->image_path)){
                 $image_obj = new ImageController();
                 $temp_name = [];
                 $ocr = new TesseractOCR();
                 $ocr->image($validate_request->image_path);
                 $text = $ocr->run();
+                $charges_offences = $image_obj->findCharges($text);
+                if (array_key_exists('Charge', $charges_offences)) {
+                    foreach ($charges_offences['Charge'] as $charge) {
+                        $possible_charges[] = $charge;                        
+                    }
+                }
+                if (array_key_exists('Offense', $charges_offences)) {
+                    foreach ($charges_offences['Offense'] as $offence) {
+                        $possible_offences[] = $offence;                        
+                    }
+                }
                 $temp_name = $image_obj->findClientName($text);
                 foreach ($temp_name as $name) {
                     $possible_names[] = $name;
                 }
                 $possible_DOBs[] = $image_obj->findClientDOB($text);
                 $possible_DOBs = array_flatten($possible_DOBs);
-                $text = "PAGE ". $validate_request->page_number . "\n\n" . preg_replace('/\n\n\s+/', '\n\n', $text) . "\n\n";
-                return  response()->json(["result"=> $text,  "possible_DOBs"=> implode(", ",$possible_DOBs), "possible_names"=> implode (", ", $possible_names)]);
+                $text = preg_replace('/\n\n\s+/', '\n\n', $text) . "\n\n";
+                return  response()->json(["result"=> $text,  
+                                          "possible_DOBs"=> implode(", ",$possible_DOBs), 
+                                          "possible_names"=> implode (", ", $possible_names),
+                                          "possible_charges" => $possible_charges,
+                                          "possible_offences"=> $possible_offences]);
 
             }
            return response()->json(['error'=> 'image_path is mandatory']);
@@ -89,7 +107,8 @@ class ApiController extends Controller
     {
         try {
             $possible_names = [];
-            $possible_dobs = [];            
+            $possible_dobs = [];
+            $possibleClients = [];          
             $validate_request = json_decode($request->getContent());
             if(isset($validate_request->possible_names)  &&  isset($validate_request->possible_DOBs)){
                 $image_obj = new ImageController();
@@ -191,6 +210,4 @@ class ApiController extends Controller
 
     }
 
-
-    
 }
