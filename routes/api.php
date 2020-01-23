@@ -37,6 +37,7 @@ Route::group([
         Route::post('/cleanServerFiles', 'ApiController@cleanServerFiles');
         Route::get('/getVLAEmail', 'ApiController@getVLAEmail');
         Route::post('/setEmailAttachment', 'ApiController@setEmailAttachment');
+        Route::post('/getChargeDetails', 'ApiController@getChargeDetails');
     });
 });
 

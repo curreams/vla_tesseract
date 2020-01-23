@@ -91,7 +91,7 @@ class ImageController extends Controller
             $response = $client_obj->getClient($combination);
             if(isset($response->Data)) {
                 foreach ($response->Data as $client) {
-                    $possible_clients[$client->ClientId] = $client;
+                    $possible_clients[$client->AtlasClientID] = $client;
                 }
             }
         }        
@@ -160,16 +160,61 @@ class ImageController extends Controller
         
     }
 
+
+    /**
+     * Find the possible informant names in the brief
+     * 
+     */
+    public function findInformantName($text, $client_names)
+    {
+        $possible_names = [];
+        $commonwords = getCommonWords();        
+        $data   = preg_split('/\s+/', preg_replace("/[^a-zA-Z0-9\s+]/","",strtolower($text)));
+        $keys_informant = array_keys($data,'informant');
+        foreach ($keys_informant as  $key_value) {
+            $sub_array = array_slice($data, $key_value, 20);
+            $name_keys = array_keys($sub_array,'name');
+            foreach ($name_keys as $key => $name_key) {
+                $temp_name= [];
+                for ($i=1; $i <= 3 ; $i++) {
+                    if(isset($sub_array[$name_key + $i])){
+                        $word = preg_replace("/[^a-zA-Z]/", "", $sub_array[$name_key + $i]);                    
+                        if(strtolower($word) == 'coaccused' ){
+                            break;
+                        }
+                        if(isset($word) && trim($word) != '' && !in_array($word, $commonwords)){
+                            $temp_name[] = $word;
+                        }
+                    } 
+                }
+                if(!empty($temp_name)){
+                    $implode_name =  implode(' ',$temp_name);
+                    foreach ($client_names as $name) {
+                        if($implode_name != $name){
+                            $possible_names[] = $implode_name;
+                        }
+                    }
+                }
+            }           
+        }
+        //Search for duplicated names.
+
+        return $possible_names;
+        
+    }
+
     public function findCharges($text)
     {
         $possible_charges = [];
-        $commonwords = getCommonWords();
-        $data = preg_replace("/[^a-zA-Z0-9:.\"\/\s+]/","",strtolower($text));
+        $commonwords = getCommonWordsOffences();
+        $data = preg_replace("/[^a-zA-Z0-9:.\"\/\s+()]/","",strtolower($text));
         $pos_charge = strpos($data, 'details of the charge against');
         $pos_offence = strpos($data, 'offence literal');
         $pos_cont_charges = strpos($data, 'continuation of charges');
+        preg_match_all("/offence code/",$data,$pos_offence_code, PREG_OFFSET_CAPTURE );
+        preg_match_all("/act or regulation/",$data,$pos_regulations, PREG_OFFSET_CAPTURE );
+        
         $result = [];
-        //return substr($data, $pos_cont_charges);
         if($pos_charge) {
             $temp_string = substr($data, $pos_charge, strpos($data,".\n",$pos_charge) - $pos_charge);
             $result["Charge"][] = substr($temp_string, strpos($temp_string, "1"));
@@ -178,7 +223,7 @@ class ImageController extends Controller
         if($pos_offence) {
             $substr = substr($data, $pos_offence);
             preg_match_all("/offence literal/",$substr,$matches_offences, PREG_OFFSET_CAPTURE );
-            foreach (array_flatten($matches_offences) as $match) {
+            foreach (array_flatten($matches_offences) as $key => $match) {
                 if(is_int($match)) {
                     $temp_string = substr($substr, $match, strpos($substr,".\n",$match) - $match);
                     $result["Offense"][] = trim(substr($temp_string, strpos($temp_string, ":") + 1, strpos($temp_string, "\n") - strpos($temp_string, ":") ));
@@ -196,12 +241,53 @@ class ImageController extends Controller
                     $temp_string = substr($substr, $match, strpos($substr,".\n",$match) - $match);
                     $result["Charge"][] = substr($temp_string, strpos($temp_string, "\n\d"));
                 }
-                /*$temp_pos = strpos($data, $match);
-                $temp_string = substr($data, $temp_pos, strpos($data,".\n",$temp_pos) - $temp_pos);
-                $result["Charge"][] = substr($temp_string, strpos($temp_string, "\n\d"));*/
+            }
+        }
+        if(!empty(array_flatten($pos_offence_code))){
+            foreach (array_flatten($pos_offence_code) as $key => $pos_code) {
+                if(is_int($pos_code)){
+                    $substr = substr($data, $pos_code, 25);
+                    preg_match("/([0-9])\w+/", $substr, $codes);
+                    foreach ($codes as $key => $code) {
+                        if(strlen($code) > 1 ){
+                            $result["Code"][] = $code;
+                        }
+                    }
+                }
             }
         }
 
+        if (!empty(array_flatten($pos_regulations))) {
+            foreach (array_flatten($pos_regulations) as $key => $pos_regulation) {
+                if(is_int($pos_regulation)){
+                    // Regulation Code
+                    $temp_regulations=[];
+                    $regulation="";
+                    $substr = substr($data, $pos_regulation, 150);
+                    $words = preg_split('/\s+/', $substr);
+                    foreach ($words as $word) {
+                        $word = preg_replace("/[^a-zA-Z]/", "", $word);
+                        if(isset($word) && trim($word) != '' && !in_array($word, $commonwords)){
+                            $temp_regulations[] = $word;
+                        }
+                    }
+                    $regulation = implode(" ",$temp_regulations);
+                    preg_match("/([0-9])\w+\/([0-9])\w+/", $substr, $regulation_numbers);
+                    $regulation_numbers =   array_filter($regulation_numbers, function($number) {
+                        return strlen($number) > 1;
+                    });
+                    $result["Regulation"][] = ucwords($regulation) . " ACT No " . implode(" ",$regulation_numbers);
+                    // References
+                    preg_match("/([0-9])\w+\(([0-9])\)\([a-z]\)|([0-9])\w+\(([0-9])\)\(([a-z])\w+\)|([0-9])\w+\(([0-9])\)|(?<=\s)\d+(?=\s)/", $substr, $references);
+                    $reference_number = array_filter($references, function($number) {
+                        return strlen($number) > 1;
+                    });
+                    $result["Reference"][] = implode(" ",$reference_number);
+                }
+            }
+
+        }
+        
         return $result;
     }
 

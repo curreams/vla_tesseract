@@ -60,9 +60,6 @@ class ApiController extends Controller
         try {
             $possible_names = [];
             $possible_DOBs = [];
-            $charges_offences = [];
-            $possible_offences = [];
-            $possible_charges = [];
 
             $validate_request = json_decode($request->getContent());
             if(isset($validate_request->image_path)){
@@ -71,29 +68,27 @@ class ApiController extends Controller
                 $ocr = new TesseractOCR();
                 $ocr->image($validate_request->image_path);
                 $text = $ocr->run();
-                $charges_offences = $image_obj->findCharges($text);
-                if (array_key_exists('Charge', $charges_offences)) {
-                    foreach ($charges_offences['Charge'] as $charge) {
-                        $possible_charges[] = $charge;                        
-                    }
-                }
-                if (array_key_exists('Offense', $charges_offences)) {
-                    foreach ($charges_offences['Offense'] as $offence) {
-                        $possible_offences[] = $offence;                        
-                    }
-                }
+                $details = $image_obj->findCharges($text);
+                //return response()->json(["result"=> $details]);
                 $temp_name = $image_obj->findClientName($text);
+                
                 foreach ($temp_name as $name) {
                     $possible_names[] = $name;
                 }
+                $temp_informantname = $image_obj->findInformantName($text,$possible_names);
+                //return response()->json(['Information'=> $temp_informantname]);
                 $possible_DOBs[] = $image_obj->findClientDOB($text);
                 $possible_DOBs = array_flatten($possible_DOBs);
                 $text = preg_replace('/\n\n\s+/', '\n\n', $text) . "\n\n";
                 return  response()->json(["result"=> $text,  
                                           "possible_DOBs"=> implode(", ",$possible_DOBs), 
                                           "possible_names"=> implode (", ", $possible_names),
-                                          "possible_charges" => $possible_charges,
-                                          "possible_offences"=> $possible_offences]);
+                                          "possible_charges" => array_key_exists('Charge', $details) ?  $details['Charge']:[],
+                                          "possible_offences"=> array_key_exists('Offense', $details) ? $details['Offense']:[],
+                                          "possible_codes" => array_key_exists('Code', $details) ? $details['Code']:[],
+                                          "possible_regulation"=> array_key_exists('Regulation', $details) ? $details['Regulation'] : [],
+                                          "possible_reference" => array_key_exists('Reference', $details) ?  $details['Reference'] :[],
+                                          "possible_informant" => $temp_informantname,]);
 
             }
            return response()->json(['error'=> 'image_path is mandatory']);
@@ -126,7 +121,8 @@ class ApiController extends Controller
                     }
                 }
                 $combinations = $image_obj->makeCombinations($possible_names ,$possible_dobs);
-                $possibleClients = $image_obj->searchClient($combinations);
+                $possibleClients =  $image_obj->searchClient($combinations);
+                // TODO array object with client, and charges. 
 
                 return response()->json($possibleClients);
 
@@ -138,6 +134,54 @@ class ApiController extends Controller
         }
 
     }
+
+    public function getChargeDetails(Request $request)
+    {
+        try {
+            $possible_charges = [];
+            $possible_offences = [];
+            $possible_codes = [];
+            $possible_regulations = [];
+            $possible_references = [];
+            $possible_informants = [];
+            $result = [];        
+            $validate_request = json_decode($request->getContent());
+            if(isset($validate_request->possible_charges)  &&  
+               isset($validate_request->possible_offences) &&  
+               isset($validate_request->possible_codes) && 
+               isset($validate_request->possible_regulations) && 
+               isset($validate_request->possible_references) &&
+               isset($validate_request->possible_informants)){
+
+                foreach ($validate_request->possible_charges as $key => $possible_charge) {
+                    $result[$key]["Charges"] = $possible_charge;
+                }
+                foreach ($validate_request->possible_offences as $key => $possible_offence) {
+                    $result[$key]["Offence"] = $possible_offence;
+                }
+                foreach ($validate_request->possible_codes as $key => $possible_code) {
+                    $result[$key]["Offence Code"] = $possible_code;
+                }
+                foreach ($validate_request->possible_regulations as $key => $possible_regulation) {
+                    $result[$key]["Regulation"] =  $possible_regulation;
+                }
+                foreach ($validate_request->possible_references as $key => $possible_reference) {
+                    $result[$key]["Section/Clause"] = $possible_reference;
+                }
+                foreach ($validate_request->possible_informants as $key => $possible_informant) {
+                    $result[$key]["Informant"] = $possible_informant;
+                }
+                return response()->json($result);
+
+            }
+            return response()->json(['error'=> 'possible_charges, possible_offences, possible_codes, possible_regulations, possible_references and possible_informants are mandatory']);
+        } catch (\Exception $ex) {
+            return response()->json(['error'=>$ex instanceof \Illuminate\Validation\ValidationException ? 
+                                            implode(" ",array_flatten($ex->errors())) : $ex->getMessage()],500);
+        }
+
+    }
+
 
    /**
      * After execution Clean the server files.
