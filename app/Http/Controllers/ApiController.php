@@ -68,6 +68,14 @@ class ApiController extends Controller
                 $ocr = new TesseractOCR();
                 $ocr->image($validate_request->image_path);
                 $text = $ocr->run();
+                //return  response()->json(["result"=> $text,]);
+                // Test Witness 
+                $args = $image_obj->getFileArgs($request);
+                $witness = $image_obj->findWitnessList($text,$args);
+                
+
+                return  response()->json(["result"=> $witness,]);
+
                 $details = $image_obj->findCharges($text);
                 //return response()->json(["result"=> $details]);
                 $temp_name = $image_obj->findClientName($text);
@@ -88,7 +96,7 @@ class ApiController extends Controller
                                           "possible_codes" => array_key_exists('Code', $details) ? $details['Code']:[],
                                           "possible_regulation"=> array_key_exists('Regulation', $details) ? $details['Regulation'] : [],
                                           "possible_reference" => array_key_exists('Reference', $details) ?  $details['Reference'] :[],
-                                          "possible_informant" => $temp_informantname,]);
+                                          "possible_informant" => $temp_informantname]);
 
             }
            return response()->json(['error'=> 'image_path is mandatory']);
@@ -150,8 +158,7 @@ class ApiController extends Controller
                isset($validate_request->possible_offences) &&  
                isset($validate_request->possible_codes) && 
                isset($validate_request->possible_regulations) && 
-               isset($validate_request->possible_references) &&
-               isset($validate_request->possible_informants)){
+               isset($validate_request->possible_references) ){
 
                 foreach ($validate_request->possible_charges as $key => $possible_charge) {
                     $result[$key]["Charges"] = $possible_charge;
@@ -168,13 +175,10 @@ class ApiController extends Controller
                 foreach ($validate_request->possible_references as $key => $possible_reference) {
                     $result[$key]["Section/Clause"] = $possible_reference;
                 }
-                foreach ($validate_request->possible_informants as $key => $possible_informant) {
-                    $result[$key]["Informant"] = $possible_informant;
-                }
                 return response()->json($result);
 
             }
-            return response()->json(['error'=> 'possible_charges, possible_offences, possible_codes, possible_regulations, possible_references and possible_informants are mandatory']);
+            return response()->json(['error'=> 'possible_charges, possible_offences, possible_codes, possible_regulations and possible_references are mandatory']);
         } catch (\Exception $ex) {
             return response()->json(['error'=>$ex instanceof \Illuminate\Validation\ValidationException ? 
                                             implode(" ",array_flatten($ex->errors())) : $ex->getMessage()],500);
@@ -252,6 +256,21 @@ class ApiController extends Controller
         }
 
 
+    }
+
+    public function getHearingDetails(Request $request){
+        try {
+            $validate_request = json_decode($request->getContent());
+            if(isset($validate_request->FirstName) && isset($validate_request->LastName)){
+                $scrap_obj = new ScrapController();
+                $links =   $scrap_obj->getHearingDetails($validate_request);
+                return response()->json($links);
+            }
+            return response()->json(['error'=> 'First and Lastname are mandatory']);
+        } catch (\Exception $ex) {
+            return response()->json(['error'=>$ex instanceof \Illuminate\Validation\ValidationException ? 
+                                            implode(" ",array_flatten($ex->errors())) : $ex->getMessage()],500);
+        }
     }
 
 }

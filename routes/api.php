@@ -38,6 +38,7 @@ Route::group([
         Route::get('/getVLAEmail', 'ApiController@getVLAEmail');
         Route::post('/setEmailAttachment', 'ApiController@setEmailAttachment');
         Route::post('/getChargeDetails', 'ApiController@getChargeDetails');
+        Route::post('/getHearingDetails', 'ApiController@getHearingDetails');
     });
 });
 

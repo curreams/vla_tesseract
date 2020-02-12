@@ -25,3 +25,18 @@ if (! function_exists('getCommonWordsOffences')) {
     }
 }
 
+
+if (! function_exists('getKeyWordsPattern')) {
+    function getKeyWordsPattern()
+    {
+        $pattern = "/^(Witness|witness|Informant|informant|Corroborator|corroborator|Protective Services Officer)/";
+        return $pattern;
+        //cartesian_product($array1)->asArray();
+    }
+}
+
+
+ 
+
+
+

@@ -160,7 +160,159 @@ class ImageController extends Controller
         
     }
 
+    public function findWitnessList($text, $args)
+    {
+        $witnesses= [];
+              
+        $data = preg_split('/\n+/', preg_replace("/[^a-zA-Z0-9\s+]/","",$text));
+        $data_trimmed   =  array_map(function($line) {
+                                return trim(strtolower($line));
+                            },$data);
 
+        $number_pattern = "/^[0-9]+/";
+        $keys_witness = array_keys($data_trimmed,'witness list');
+        foreach ($keys_witness as  $key_value) 
+        {
+            $names = self::getWitnessNames($args);
+
+            $evidence = self::getEvidenceList($args);
+            return $evidence;
+
+            break;
+        }
+        return $witnesses;
+        
+    }
+
+    private function getWitnessNames($args)    
+    {
+        $name_capital_pattern = "/([A-Z]{2,})\w+/";
+        $name_lower_pattern = "/([A-Z0-9][a-z]{1,})\w+/";
+        $cont_pos = 0;
+        $test=0;
+        $witness_names= [];
+        // Crop Image
+        $args["iw"] = 0;
+        $args["ih"] = 360;
+        $args["w"] = 850;
+        $args["suffix"] = "names";
+        
+        $text = self::cropImage($args);
+        // The witnesses names
+        $data = preg_split('/\s+/', preg_replace("/[^a-zA-Z0-9\s+]/","",$text));
+        
+        $names = array_slice(array_map(function($line) {
+                                                    return trim($line);
+                                                },$data), 0);
+                                                        
+
+        // Check Spelling for some words.
+        $names = array_map(function($word) use ($name_lower_pattern, $name_capital_pattern) {
+                if(preg_match($name_lower_pattern,$word) != 1 && 
+                    preg_match($name_capital_pattern,$word) != 1 &&
+                    strlen($word) > 2 ){
+                        $suggestions = self::checkSpelling($word);
+                        if(isset($suggestions[0])){
+                            return ucwords($suggestions[0]);
+                        }
+                    }
+                else {
+                    return $word;
+                }    
+
+            },$names);
+        // Remove Words of 2 letters or less.
+        
+        $names = array_values(array_filter($names, function($word){
+            return strlen($word) > 2 ? true : false;
+        }));
+
+        // Process each Name
+        for($i=0; $i< count($names); $i++) {
+            $temp = [];
+            if(preg_match($name_lower_pattern,$names[$i]) == 1){
+                $cont_pos++;
+            }
+            if((preg_match($name_capital_pattern,$names[$i]) == 1 
+                && isset($names[$i + 1]) 
+                && preg_match($name_lower_pattern,$names[$i+1]) == 1)
+                ||
+               (preg_match($name_capital_pattern,$names[$i]) == 1 
+                && !isset($names[$i + 1]) )) {
+                    $test++;
+                    for($j = $i-$cont_pos; $j<=$i; $j++){
+                        $temp[] = $names[$j];
+                    }
+                    $witness_names[] = implode(" ",$temp);
+                    $cont_pos=0;
+            }
+
+        }
+
+        return $witness_names;
+        
+    }
+
+    function getEvidenceList($args)
+    {
+        $word_pattern = "/\b[Nn][A-Za-z]\b|\b[Yy][A-Za-z][A-Za-z]\b/";
+        $single_word_pattern = "/^\b[A-Za-z0-9][A-Za-z0-9]\b|^\b[A-Za-z0-9]\b/";
+        $args["iw"] = 820;
+        $args["ih"] = 360;
+        $args["w"] = 1400;
+        $args["suffix"] = "evidences";
+        $witness_evidence= [];
+        
+        $text = self::cropImage($args);
+        $data = preg_split('/\n+/', preg_replace("/[^a-zA-Z0-9\s+]/","",$text));
+        $evidences = array_map(function($line){
+            return trim($line);
+        }, $data);
+
+        // First Solution -- Consist in see the reserved words
+
+        // Filter undesirable words
+        $evidences = array_values(array_filter($evidences, function($evidence) use($word_pattern, $single_word_pattern){
+            if(preg_match($word_pattern, $evidence) || empty($evidence) || preg_match($single_word_pattern, $evidence)){
+                return false;
+            }
+            return true;
+        }));
+        return $evidences;
+        foreach ($evidences as $key => $line) {
+            $temp = [];
+            if(preg_match(getKeyWordsPattern(), $line)){
+                $temp[] = $line;
+                $index = $key;
+                while(isset($evidences[$index + 1]) && preg_match(getKeyWordsPattern(), $evidences[$index + 1]) == 0)
+                {
+                    $temp[] = $evidences[$index + 1];
+                    $index++;
+                }
+                $witness_evidence[] = implode(" ",$temp);
+            }
+        }
+
+
+
+        return $witness_evidence;
+
+    }
+
+    function cropImage($args)
+    {
+        // Crop the image and run the ocr
+        $ocr = new TesseractOCR();
+        $image = new Imagick($args["file_name"]);
+        $dimensions = $image->getImageGeometry();
+        $image->cropImage($args["w"], $dimensions['height'], $args["iw"], $args["ih"]);        
+        $names_path = $args['public_path'].$args['name'].$args["suffix"].'.tiff';
+        $image->writeImage($names_path);
+        $ocr->image($names_path);
+        $text = $ocr->run();
+        return $text;
+
+    }
     /**
      * Find the possible informant names in the brief
      * 
@@ -319,7 +471,11 @@ class ImageController extends Controller
             $fileName =  $rest_request->file_name;
             $name = basename($rest_request->file_name, '.pdf');
 
-        } else {
+        } else if (isset($rest_request->image_path)) {
+            $fileName =  $rest_request->image_path;
+            $name = basename($rest_request->image_path, '.tiff');
+
+        } else  {
             $fileName =  $request['upload_file']->getClientOriginalName();
             $name = basename($request['upload_file']->getClientOriginalName(), '.'.$request['upload_file']->getClientOriginalExtension());
             $request['upload_file']->move($public_path, $fileName);
@@ -371,6 +527,20 @@ class ImageController extends Controller
         }
         return $result;
 
+
+    }
+
+    private function checkSpelling($word)
+    {
+        $pspell_link = pspell_new("en");
+        $suggestion = [];
+        if (!pspell_check($pspell_link, $word)) {
+            $suggestion = pspell_suggest($pspell_link, $word);
+           //array_map(function($suggestion){
+
+            //});
+        } 
+        return $suggestion;
 
     }
 
